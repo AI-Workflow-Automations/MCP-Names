@@ -1,10 +1,9 @@
 /**
- * Fassade: hydriert Nachnamen über die Namelex-Bridge.
- * Keine Fachlogik hier – Namelex liefert Wahrscheinlichkeit, Matches und Varianten.
+ * Fassade: hydriert Nachnamen über die TypeScript-Namelex-Implementierung.
  */
 
 import type { AppConfig } from "../config.js";
-import type { NamelexBridge } from "../infrastructure/namelex-bridge.js";
+import { hydrateName, type Lexicon, lexiconStats } from "../namelex/index.js";
 
 export interface HydrateOptions {
   limit?: number;
@@ -14,14 +13,22 @@ export interface HydrateOptions {
 export class NamesService {
   constructor(
     readonly config: AppConfig,
-    private readonly bridge: NamelexBridge,
+    private readonly lexicon: Lexicon,
   ) {}
 
-  hydrateName(name: string, options: HydrateOptions = {}): Promise<unknown> {
-    return this.bridge.hydrate(name, options);
+  close(): void {
+    this.lexicon.close();
   }
 
-  lexiconStats(): Promise<unknown> {
-    return this.bridge.stats();
+  hydrateName(name: string, options: HydrateOptions = {}) {
+    return hydrateName(this.lexicon, name, {
+      limit: options.limit ?? this.config.matchLimit,
+      threshold: options.threshold ?? this.config.similarityThreshold,
+      dbPath: this.config.dbPath,
+    });
+  }
+
+  lexiconStats() {
+    return lexiconStats(this.lexicon, this.config.dbPath);
   }
 }

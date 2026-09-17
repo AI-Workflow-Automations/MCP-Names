@@ -12,26 +12,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.2.5"
       - uses: pnpm/action-setup@v4
         with:
-          version: 12.4.1
-      - uses: actions/setup-python@v5
+          version: 9.15.9
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-      - name: Install JS
+          node-version: "22"
+          cache: pnpm
+      - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Install Namelex
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install -U pip
-          .venv/bin/pip install -e ".[dev]"
-      - name: Fixture DB
-        run: |
-          if [ ! -f data/fixtures/surnames.sqlite3 ]; then
-            .venv/bin/python scripts/build_fixture_db.py
-          fi
       - name: Check
         run: pnpm check
-      - name: Namelex tests
-        run: .venv/bin/pytest -q

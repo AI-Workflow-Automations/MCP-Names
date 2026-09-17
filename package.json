@@ -1,7 +1,7 @@
 {
   "name": "mcp-names",
   "version": "0.1.0",
-  "description": "MCP server for German surname hydration via Namelex",
+  "description": "MCP server for German surname hydration via Namelex (TypeScript)",
   "type": "module",
   "private": true,
   "license": "UNLICENSED",
@@ -28,5 +28,5 @@
     "@types/bun": "latest",
     "typescript": "^5.7.2"
   },
-  "packageManager": "pnpm@12.4.1"
+  "packageManager": "pnpm@9.15.9"
 }

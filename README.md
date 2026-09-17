@@ -1,6 +1,6 @@
 # MCP Names – German surname hydration for phone agents
 
-**Runtime:** Bun · **Package manager:** pnpm · **Lint:** Biome · **Lexikon:** [Namelex](packages/namelex) (Python) · **Code:** English, **comments:** German
+**Runtime:** Bun · **Package manager:** pnpm · **Lint:** Biome · **Lexikon:** Namelex (TypeScript + SQLite) · **Code:** English, **comments:** German
 
 ---
 
@@ -10,16 +10,14 @@ Speech recognition mangles German surnames. An agent that silently accepts “Sc
 
 This server hydrates the heard name against an open surname lexicon (Namelex): probability, fuzzy corrections, spelling variants, and a `needsHuman` flag when nothing is confident.
 
-The **MCP surface is TypeScript** (same stack as MCP-Geocoder). Hydration **calls into Namelex** via `namelex hydrate` / `namelex stats`.
+The **MCP surface and hydration engine are pure TypeScript** (Bun + `bun:sqlite`). No Python runtime.
 
 ## Quick start
 
 ```bash
 pnpm install
-python3 -m pip install -e ".[dev]"          # Namelex CLI bridge
-python3 scripts/build_fixture_db.py         # if data/fixtures/surnames.sqlite3 is missing
-pnpm check                                  # typecheck + lint + test
-bun run src/index.ts                        # stdio MCP
+pnpm check                  # typecheck + lint + test
+bun run src/index.ts        # stdio MCP
 ```
 
 Claude Code / Desktop (`.mcp.json` is in the repo):
@@ -34,12 +32,10 @@ Or:
 claude mcp add mcp-names -- bun run "$PWD/src/index.ts"
 ```
 
-Production lexicon:
+Point at a production lexicon SQLite file (Namelex schema):
 
 ```bash
-namelex fetch --sources onomaverse wikidata
-namelex build --db data/surnames.sqlite3
-export NAMELEX_DB_PATH=data/surnames.sqlite3
+export NAMELEX_DB_PATH=/path/to/surnames.sqlite3
 bun run src/index.ts
 ```
 
@@ -57,15 +53,14 @@ bun run src/index.ts
 | `NAMELEX_DB_PATH` | `data/fixtures/surnames.sqlite3` | SQLite lexicon |
 | `NAMELEX_MATCH_LIMIT` | `5` | Max candidates |
 | `NAMELEX_SIMILARITY_THRESHOLD` | `0.86` | Soft floor for `confident` |
-| `NAMELEX_PYTHON` / `PYTHON` | `python3` | Interpreter for the Namelex bridge |
 
 ## Layout
 
 ```
-src/                    TypeScript MCP server (tools, facade, bridge)
-packages/namelex/       Vendored Namelex (build + hydrate CLI)
-data/fixtures/          Offline fixture DB for tests/demos
-vendor/namelex_1.tar.gz Source archive (provenance)
+src/mcp/                MCP tools + texts
+src/application/        NamesService facade
+src/namelex/            TypeScript Namelex (normalize, phonetics, similarity, lexicon, hydrate)
+data/fixtures/          Offline fixture SQLite DB
 ```
 
 ## Licenses (lexicon sources)
@@ -75,5 +70,3 @@ vendor/namelex_1.tar.gz Source archive (provenance)
 | Wikidata | CC0 1.0 |
 | GND (DNB) | CC0 1.0 |
 | Onomaverse | CC BY 4.0 – Attribution required |
-
-Details: [`packages/namelex/README.md`](packages/namelex/README.md).

@@ -7,7 +7,7 @@ import { mcpTexts } from "./tool-texts.js";
 
 /**
  * MCP-Server: übersetzt Tool-Aufrufe in Aufrufe der Fassade.
- * Hier steht keine Fachlogik – Hydrierung läuft über Namelex.
+ * Hier steht keine Fachlogik – Hydrierung läuft über src/namelex.
  */
 
 function jsonResult(payload: unknown) {
