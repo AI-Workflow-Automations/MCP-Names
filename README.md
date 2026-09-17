@@ -1,94 +1,79 @@
-"""Nachnamen-Hydrierung für Telefonagenten – MCP-Server auf Namelex.
+# MCP Names – German surname hydration for phone agents
 
-Runtime: Python ≥3.10 · MCP: FastMCP (stdio) · Lexikon: [Namelex](packages/namelex)
+**Runtime:** Bun · **Package manager:** pnpm · **Lint:** Biome · **Lexikon:** [Namelex](packages/namelex) (Python) · **Code:** English, **comments:** German
 
 ---
 
-## Warum
+## Why
 
-Spracherkennung verhört deutsche Nachnamen. Ein Agent, der „Schmit“ ungeprüft
-übernimmt, schreibt falsche Daten – der Kunde erlebt das als „der Agent findet
-mich nicht“.
+Speech recognition mangles German surnames. An agent that silently accepts “Schmit” writes bad data; the caller experiences “the agent can’t find me.”
 
-Dieser Server hydriert den verstandenen Namen gegen ein offenes Nachnamen-Lexikon
-(Namelex): Wahrscheinlichkeit, Fuzzy-Korrekturen, Schreibvarianten, und ein
-`needsHuman`-Flag wenn nichts sicher passt.
+This server hydrates the heard name against an open surname lexicon (Namelex): probability, fuzzy corrections, spelling variants, and a `needsHuman` flag when nothing is confident.
+
+The **MCP surface is TypeScript** (same stack as MCP-Geocoder). Hydration **calls into Namelex** via `namelex hydrate` / `namelex stats`.
 
 ## Quick start
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-python scripts/build_fixture_db.py   # falls data/fixtures/surnames.sqlite3 fehlt
-pytest -q
-mcp-names                            # stdio MCP
+pnpm install
+python3 -m pip install -e ".[dev]"          # Namelex CLI bridge
+python3 scripts/build_fixture_db.py         # if data/fixtures/surnames.sqlite3 is missing
+pnpm check                                  # typecheck + lint + test
+bun run src/index.ts                        # stdio MCP
 ```
 
-Claude Code / Desktop (`.mcp.json` ist bereits im Repo):
+Claude Code / Desktop (`.mcp.json` is in the repo):
 
 ```bash
-claude   # startet mcp-names über .mcp.json
+claude   # starts mcp-names via bun
 ```
 
-Oder manuell:
+Or:
 
 ```bash
-claude mcp add mcp-names -- python -m mcp_names
+claude mcp add mcp-names -- bun run "$PWD/src/index.ts"
 ```
 
-Produktion: Lexikon mit Namelex bauen und Pfad setzen:
+Production lexicon:
 
 ```bash
 namelex fetch --sources onomaverse wikidata
 namelex build --db data/surnames.sqlite3
 export NAMELEX_DB_PATH=data/surnames.sqlite3
-mcp-names
+bun run src/index.ts
 ```
 
 ## MCP tools
 
-| Tool | Zweck |
+| Tool | Purpose |
 |---|---|
-| `hydrate_name` | Primäres Hydrierungs-Tool: Wahrscheinlichkeit, Matches, Varianten |
-| `lexicon_stats` | Größe / Lizenzen der geladenen DB (Setup/Debug) |
+| `hydrate_name` | Primary hydration: probability, matches, variants |
+| `lexicon_stats` | DB size / licenses (setup/debug) |
 
-Beispielantwort von `hydrate_name` für `"Schmit"`:
+## Configuration
 
-```json
-{
-  "query": "Schmit",
-  "probability": { "known": false, "plausibility": 0.72, ... },
-  "matches": [
-    { "name": "Schmidt", "score": 0.91, "confident": true, "matched_via": "edit" }
-  ],
-  "variants": ["Schmid", "Schmitt"],
-  "needsHuman": false
-}
-```
-
-## Konfiguration
-
-| Variable | Default | Bedeutung |
+| Variable | Default | Meaning |
 |---|---|---|
-| `NAMELEX_DB_PATH` | `data/fixtures/surnames.sqlite3` | SQLite-Lexikon |
-| `NAMELEX_MATCH_LIMIT` | `5` | Max. Kandidaten |
-| `NAMELEX_SIMILARITY_THRESHOLD` | `0.86` | Soft-Floor für `confident` |
+| `NAMELEX_DB_PATH` | `data/fixtures/surnames.sqlite3` | SQLite lexicon |
+| `NAMELEX_MATCH_LIMIT` | `5` | Max candidates |
+| `NAMELEX_SIMILARITY_THRESHOLD` | `0.86` | Soft floor for `confident` |
+| `NAMELEX_PYTHON` / `PYTHON` | `python3` | Interpreter for the Namelex bridge |
 
 ## Layout
 
 ```
-src/mcp_names/          MCP-Fassade und Tools
-packages/namelex/       vendortes Namelex (Hydrierungs-Backend)
-data/fixtures/          Offline-Fixture-DB für Tests/Demos
-vendor/namelex_1.tar.gz Quellarchiv (Provenienz)
+src/                    TypeScript MCP server (tools, facade, bridge)
+packages/namelex/       Vendored Namelex (build + hydrate CLI)
+data/fixtures/          Offline fixture DB for tests/demos
+vendor/namelex_1.tar.gz Source archive (provenance)
 ```
 
-## Lizenzen der Lexikon-Quellen
+## Licenses (lexicon sources)
 
-| Quelle | Lizenz |
+| Source | License |
 |---|---|
 | Wikidata | CC0 1.0 |
 | GND (DNB) | CC0 1.0 |
-| Onomaverse | CC BY 4.0 – Attribution: Names data from Onomaverse (https://onomaverse.com/datasets), licensed CC BY 4.0. |
+| Onomaverse | CC BY 4.0 – Attribution required |
 
 Details: [`packages/namelex/README.md`](packages/namelex/README.md).

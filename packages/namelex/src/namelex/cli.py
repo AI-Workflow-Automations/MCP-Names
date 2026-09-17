@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from . import build as build_module
+from . import hydrate as hydrate_module
 from .query import Lexicon, as_dict
 from .verify import report as verify_report
 from .sources import NameRecord, gnd, onomaverse, wikidata, wordlist
@@ -144,6 +145,39 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_hydrate(args: argparse.Namespace) -> int:
+    """JSON hydration payload for the TypeScript MCP bridge."""
+    db = Path(args.db)
+    if not db.exists():
+        print(json.dumps({"error": f"database not found: {db}", "needsHuman": True}),
+              file=sys.stderr)
+        return 2
+    lexicon = Lexicon(db)
+    try:
+        payload = hydrate_module.hydrate_name(
+            lexicon, args.name, limit=args.limit, threshold=args.threshold,
+            db_path=db,
+        )
+        print(json.dumps(payload, ensure_ascii=False))
+    finally:
+        lexicon.close()
+    return 0
+
+
+def cmd_stats(args: argparse.Namespace) -> int:
+    db = Path(args.db)
+    if not db.exists():
+        print(json.dumps({"error": f"database not found: {db}", "exists": False}),
+              file=sys.stderr)
+        return 2
+    lexicon = Lexicon(db)
+    try:
+        print(json.dumps(hydrate_module.lexicon_stats(lexicon, db), ensure_ascii=False))
+    finally:
+        lexicon.close()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="namelex",
                                      description="German surname lexicon builder")
@@ -176,6 +210,18 @@ def main(argv: list[str] | None = None) -> int:
     calibrate = sub.add_parser("calibrate",
                                help="suggest a similarity threshold from GND pairs")
     calibrate.set_defaults(func=cmd_calibrate)
+
+    hydrate = sub.add_parser(
+        "hydrate",
+        help="hydrate a surname for the MCP bridge (JSON on stdout)",
+    )
+    hydrate.add_argument("name")
+    hydrate.add_argument("--limit", type=int, default=5)
+    hydrate.add_argument("--threshold", type=float, default=0.86)
+    hydrate.set_defaults(func=cmd_hydrate)
+
+    stats = sub.add_parser("stats", help="lexicon stats JSON for the MCP bridge")
+    stats.set_defaults(func=cmd_stats)
 
     args = parser.parse_args(argv)
     return args.func(args)
