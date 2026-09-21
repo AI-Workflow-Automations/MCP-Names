@@ -1,0 +1,24 @@
+services:
+  names:
+    build: .
+    # Fertiges Image von GHCR; `docker compose up --build` baut weiter lokal
+    image: ghcr.io/ai-workflow-automations/mcp-names:latest
+    # Kein Host-Binding: Port nur im Compose-Netz (Reverse Proxy, n8n, Vapi-Gateway).
+    # Host-Port lokal: docker run -p 8081:8080 ... oder ports: in docker-compose.override.yml
+    expose:
+      - "8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HTTP_PORT: "8080"
+      NAMELEX_DB_PATH: /app/data/fixtures/surnames.sqlite3
+      NAMELEX_GIVEN_DB_PATH: /app/data/fixtures/given-names.sqlite3
+      NAMELEX_MATCH_LIMIT: "5"
+      NAMELEX_SIMILARITY_THRESHOLD: "0.86"
+    volumes:
+      - names-data:/data
+    restart: unless-stopped
+
+volumes:
+  names-data:

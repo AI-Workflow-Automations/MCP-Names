@@ -5,8 +5,7 @@ import { composeService, config } from "./bootstrap.js";
 import { createMcpServer } from "./mcp/server.js";
 
 /**
- * stdio-Transport – für Claude Desktop, Claude Code und lokale Tests.
- * Auf stdout darf nichts außer dem Protokoll landen; Logs gehen nach stderr.
+ * stdio-Transport – Claude Desktop / Claude Code / Inspector.
  */
 const service = composeService();
 const server = createMcpServer(service, config);

@@ -1,71 +1,102 @@
-# MCP Names – German surname hydration for phone agents
+# MCP Names
 
-**Runtime:** Bun · **Package manager:** pnpm · **Lint:** Biome · **Lexikon:** [Namelex](packages/namelex) (Python) · **Code:** English, **comments:** German
+Fault-tolerant German **Vor- und Nachnamen** for phone agents. Matches what speech
+recognition thought it heard against an open-name lexicon, returns confidence and a
+`followUp` hint instead of guesswork — as an MCP server and a small REST API.
+
+**Runtime:** Bun · **Package manager:** pnpm@12.4.1 · **Lint:** Biome · **Container:** Docker  
+**Code:** English, **comments:** German
 
 ---
-
-## Why
-
-Speech recognition mangles German surnames. An agent that silently accepts “Schmit” writes bad data; the caller experiences “the agent can’t find me.”
-
-This server hydrates the heard name against an open surname lexicon (Namelex): probability, fuzzy corrections, spelling variants, and a `needsHuman` flag when nothing is confident.
-
-The **MCP surface is TypeScript** (same stack as MCP-Geocoder). Hydration **calls into Namelex** via `namelex hydrate` / `namelex stats`.
 
 ## Quick start
 
 ```bash
 pnpm install
-python3 -m pip install -e ".[dev]"          # Namelex CLI bridge
-python3 scripts/build_fixture_db.py         # if data/fixtures/surnames.sqlite3 is missing
-pnpm check                                  # typecheck + lint + test
-bun run src/index.ts                        # stdio MCP
+pnpm fixtures          # rebuild data/fixtures/*.sqlite3
+pnpm check             # typecheck + lint + test
+pnpm serve             # http://localhost:8080
 ```
 
-Claude Code / Desktop (`.mcp.json` is in the repo):
+| URL | What |
+|---|---|
+| `/health` | Lexicon readiness + thresholds |
+| `/mcp` | MCP Streamable HTTP |
+| `/api/hydrate` | REST hydrate (same facade as MCP) |
+| `/api/stats` | Lexicon stats |
+| `/api/search` | Prefix search |
+| `/api/suggest` | Short voice shortlist |
+
+stdio MCP (Claude Code / Desktop): `.mcp.json` or `bun run src/index.ts`.
+
+### Docker
 
 ```bash
-claude   # starts mcp-names via bun
+pnpm docker:build
+docker run --rm -p 8081:8080 mcp-names
+# or
+pnpm docker:up
 ```
 
-Or:
+stdio via Docker:
 
 ```bash
-claude mcp add mcp-names -- bun run "$PWD/src/index.ts"
+claude mcp add mcp-names -- docker run -i --rm ghcr.io/ai-workflow-automations/mcp-names stdio
 ```
 
-Production lexicon:
+Production lexicon mount:
 
 ```bash
-namelex fetch --sources onomaverse wikidata
-namelex build --db data/surnames.sqlite3
-export NAMELEX_DB_PATH=data/surnames.sqlite3
-bun run src/index.ts
+docker run -d --name names -p 8081:8080 \
+  -e NAMELEX_DB_PATH=/data/names.sqlite3 \
+  -e NAMELEX_GIVEN_DB_PATH=/data/given.sqlite3 \
+  -v "$PWD/data:/data:ro" \
+  ghcr.io/ai-workflow-automations/mcp-names
 ```
 
 ## MCP tools
 
-| Tool | Purpose |
+| Tool | Role |
 |---|---|
-| `hydrate_name` | Primary hydration: probability, matches, variants |
-| `lexicon_stats` | DB size / licenses (setup/debug) |
+| `hydrate_name` | Primary — voice UX payload (`confidence`, `best`, `alternatives`, `followUp`, `needsHuman`) |
+| `lexicon_stats` | Setup / debug |
+| `search_names` | Prefix browse (not for TTS) |
+| `suggest_names` | ≤3–5 spoken options |
+
+`kind`: `"family"` (Nachname, default) or `"given"` (Vorname).
+
+Agent order: **`needsHuman` → `followUp` → `best` / `alternatives`**.
 
 ## Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `NAMELEX_DB_PATH` | `data/fixtures/surnames.sqlite3` | SQLite lexicon |
-| `NAMELEX_MATCH_LIMIT` | `5` | Max candidates |
-| `NAMELEX_SIMILARITY_THRESHOLD` | `0.86` | Soft floor for `confident` |
-| `NAMELEX_PYTHON` / `PYTHON` | `python3` | Interpreter for the Namelex bridge |
+| `NAMELEX_DB_PATH` | `data/fixtures/surnames.sqlite3` | Family lexicon |
+| `NAMELEX_GIVEN_DB_PATH` | `data/fixtures/given-names.sqlite3` | Given-name lexicon |
+| `NAMELEX_MATCH_LIMIT` | `5` | Match pull size |
+| `NAMELEX_SIMILARITY_THRESHOLD` | `0.86` | Confident floor |
+| `HTTP_PORT` | `8080` | HTTP listen |
+| `MCP_AUTH_TOKEN` | empty | Optional Bearer ( `/health` always open) |
+
+## Data refresh
+
+```bash
+pnpm fixtures        # offline curated seeds (small)
+pnpm fetch-lexicon   # network: Onomaverse + Köln + München (+ Wikidata sample) → data/fixtures/
+```
+
+Shipped fixtures after fetch are production-sized for demos (~400 Nachnamen DE head, ~14k Vornamen). For full Wikidata/GND dumps, raise pagination in `scripts/fetch-lexicon.ts` and point `NAMELEX_*_DB_PATH` at the resulting SQLite. Attribution for Onomaverse (CC BY 4.0) must remain in `meta.licenses`.
 
 ## Layout
 
 ```
-src/                    TypeScript MCP server (tools, facade, bridge)
-packages/namelex/       Vendored Namelex (build + hydrate CLI)
-data/fixtures/          Offline fixture DB for tests/demos
-vendor/namelex_1.tar.gz Source archive (provenance)
+src/domain/         types (voice UX)
+src/namelex/        normalize, phonetics, similarity, lexicon, build, voice
+src/application/    NamesService facade
+src/api/            Express (/health, /mcp, REST)
+src/mcp/            tool registration + texts
+data/fixtures/      offline SQLite (family + given)
+scripts/build-fixtures.ts
 ```
 
 ## Licenses (lexicon sources)
@@ -74,6 +105,5 @@ vendor/namelex_1.tar.gz Source archive (provenance)
 |---|---|
 | Wikidata | CC0 1.0 |
 | GND (DNB) | CC0 1.0 |
-| Onomaverse | CC BY 4.0 – Attribution required |
-
-Details: [`packages/namelex/README.md`](packages/namelex/README.md).
+| Onomaverse | CC BY 4.0 |
+| Municipal Vornamen / GovData | per dataset (fixture documents provenance) |

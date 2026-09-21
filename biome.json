@@ -26,6 +26,9 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
       }
     }
   },
