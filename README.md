@@ -81,10 +81,11 @@ Agent order: **`needsHuman` → `followUp` → `best` / `alternatives`**.
 ## Data refresh
 
 ```bash
-pnpm fixtures   # curated offline fixtures (no network)
+pnpm fixtures        # offline curated seeds (small)
+pnpm fetch-lexicon   # network: Onomaverse + Köln + München (+ Wikidata sample) → data/fixtures/
 ```
 
-Ship a larger production SQLite (Namelex schema: `surname` / `variant` / `ngram` / `meta`) and point `NAMELEX_*_DB_PATH` at it. Attribution for Onomaverse (CC BY 4.0) must remain in `meta.licenses`.
+Shipped fixtures after fetch are production-sized for demos (~400 Nachnamen DE head, ~14k Vornamen). For full Wikidata/GND dumps, raise pagination in `scripts/fetch-lexicon.ts` and point `NAMELEX_*_DB_PATH` at the resulting SQLite. Attribution for Onomaverse (CC BY 4.0) must remain in `meta.licenses`.
 
 ## Layout
 
