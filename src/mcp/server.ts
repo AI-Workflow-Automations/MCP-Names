@@ -6,8 +6,7 @@ import type { AppConfig } from "../config.js";
 import { mcpTexts } from "./tool-texts.js";
 
 /**
- * MCP-Server: übersetzt Tool-Aufrufe in Aufrufe der Fassade.
- * Hier steht keine Fachlogik – Hydrierung läuft über src/namelex.
+ * MCP-Server: Tool-Aufrufe → NamesService. Keine Fachlogik hier.
  */
 
 function jsonResult(payload: unknown) {
@@ -17,7 +16,27 @@ function jsonResult(payload: unknown) {
 function errorResult(message: string) {
   return {
     isError: true,
-    content: [{ type: "text" as const, text: JSON.stringify({ error: message, needsHuman: true }) }],
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          query: "",
+          confidence: 0,
+          best: null,
+          alternatives: [],
+          needsHuman: true,
+          followUp: "spell_or_human",
+          hints: {
+            normalizedQuery: "",
+            cologne: "",
+            skeleton: "",
+            reasonDe: "Werkzeugfehler",
+            spellOut: [],
+          },
+          error: message,
+        }),
+      },
+    ],
   };
 }
 
@@ -29,9 +48,11 @@ async function guarded(action: () => Promise<unknown> | unknown) {
   }
 }
 
-export function createMcpServer(service: NamesService, _config: AppConfig): McpServer {
+const kindSchema = z.enum(["family", "given"]).optional();
+
+export function createMcpServer(service: NamesService, _config?: AppConfig): McpServer {
   const texts = mcpTexts;
-  const server = new McpServer({ name: "mcp-names", version: "0.1.0" }, { instructions: texts.instructions });
+  const server = new McpServer({ name: "mcp-names", version: "0.2.0" }, { instructions: texts.instructions });
 
   const hydrate = texts.tools.hydrate_name;
   server.registerTool(
@@ -41,11 +62,12 @@ export function createMcpServer(service: NamesService, _config: AppConfig): McpS
       description: hydrate.description,
       inputSchema: {
         name: z.string().describe(hydrate.inputs.name),
+        kind: kindSchema.describe(hydrate.inputs.kind),
         limit: z.number().int().min(1).max(50).optional().describe(hydrate.inputs.limit),
         threshold: z.number().min(0).max(1).optional().describe(hydrate.inputs.threshold),
       },
     },
-    ({ name, limit, threshold }) => guarded(() => service.hydrateName(name, { limit, threshold })),
+    ({ name, kind, limit, threshold }) => guarded(() => service.hydrateName(name, { kind, limit, threshold })),
   );
 
   const stats = texts.tools.lexicon_stats;
@@ -57,6 +79,36 @@ export function createMcpServer(service: NamesService, _config: AppConfig): McpS
       inputSchema: {},
     },
     () => guarded(() => service.lexiconStats()),
+  );
+
+  const search = texts.tools.search_names;
+  server.registerTool(
+    "search_names",
+    {
+      title: search.title,
+      description: search.description,
+      inputSchema: {
+        prefix: z.string().optional().describe(search.inputs.prefix),
+        kind: kindSchema.describe(search.inputs.kind),
+        limit: z.number().int().min(1).max(100).optional().describe(search.inputs.limit),
+      },
+    },
+    ({ prefix, kind, limit }) => guarded(() => service.searchNames({ prefix, kind, limit })),
+  );
+
+  const suggest = texts.tools.suggest_names;
+  server.registerTool(
+    "suggest_names",
+    {
+      title: suggest.title,
+      description: suggest.description,
+      inputSchema: {
+        name: z.string().describe(suggest.inputs.name),
+        kind: kindSchema.describe(suggest.inputs.kind),
+        limit: z.number().int().min(1).max(5).optional().describe(suggest.inputs.limit),
+      },
+    },
+    ({ name, kind, limit }) => guarded(() => service.suggestNames(name, { kind, limit })),
   );
 
   return server;

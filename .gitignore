@@ -1,7 +1,10 @@
 node_modules/
 .env
 .DS_Store
+*.log
 *.sqlite3-shm
 *.sqlite3-wal
 *.sqlite3
 !data/fixtures/*.sqlite3
+.venv/
+data/cache/

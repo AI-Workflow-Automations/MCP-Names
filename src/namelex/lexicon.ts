@@ -143,7 +143,7 @@ export class Lexicon {
   match(name: string, options: { limit?: number; threshold?: number; priorWeight?: number } = {}): Match[] {
     const limit = options.limit ?? 5;
     const threshold = options.threshold ?? DEFAULT_THRESHOLD;
-    const priorWeight = options.priorWeight ?? 0.15;
+    const priorWeight = options.priorWeight ?? 0.32;
     const norm = normalize(name);
     if (!norm) return [];
 
@@ -190,8 +190,17 @@ export class Lexicon {
     return variants.map((v) => v.name);
   }
 
+  /** Head of lexicon by prior (for search / keyterms). */
+  listNames(limit = 5000): string[] {
+    const rows = this.db.query("SELECT name FROM surname ORDER BY prob DESC, name ASC LIMIT ?").all(limit) as Array<{
+      name: string;
+    }>;
+    return rows.map((r) => r.name);
+  }
+
   stats(): {
     surnames: number;
+    entries: number;
     probability_mass: number;
     variants: number;
     licenses: unknown;
@@ -209,6 +218,7 @@ export class Lexicon {
     }
     return {
       surnames: counts.n,
+      entries: counts.n,
       probability_mass: Math.round((counts.mass ?? 0) * 1e6) / 1e6,
       variants: variants.n,
       licenses,

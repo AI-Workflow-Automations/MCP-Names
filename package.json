@@ -1,7 +1,7 @@
 {
   "name": "mcp-names",
-  "version": "0.1.0",
-  "description": "MCP server for German surname hydration via Namelex (TypeScript)",
+  "version": "0.2.0",
+  "description": "MCP server for German Vor- und Nachnamen hydration (Namelex). Top candidates, confidence, needsHuman, followUp for phone agents.",
   "type": "module",
   "private": true,
   "license": "UNLICENSED",
@@ -12,21 +12,30 @@
   },
   "scripts": {
     "start": "bun run src/index.ts",
+    "serve": "bun run src/serve.ts",
+    "dev": "bun --watch run src/serve.ts",
+    "fixtures": "bun run scripts/build-fixtures.ts",
+    "fetch-lexicon": "bun run scripts/fetch-lexicon.ts",
     "test": "bun test",
+    "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "inspect": "pnpm dlx @modelcontextprotocol/inspector bun run src/index.ts"
+    "inspect": "pnpm dlx @modelcontextprotocol/inspector bun run src/index.ts",
+    "docker:build": "docker build -t mcp-names .",
+    "docker:up": "docker compose up --build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "express": "^4.21.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
     "@types/bun": "latest",
+    "@types/express": "^4.17.21",
     "typescript": "^5.7.2"
   },
-  "packageManager": "pnpm@9.15.9"
+  "packageManager": "pnpm@12.4.1"
 }

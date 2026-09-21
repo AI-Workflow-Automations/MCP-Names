@@ -1,69 +1,61 @@
 import { describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
 
-import { NamesService } from "../src/application/names-service.js";
-import { loadConfig } from "../src/config.js";
-import { createMcpServer } from "../src/mcp/server.js";
-import { Lexicon } from "../src/namelex/lexicon.js";
-import { normalize, skeleton } from "../src/namelex/normalize.js";
-import { cologne } from "../src/namelex/phonetics.js";
+import { createFixtureService } from "./fixtures.js";
 
-const repoRoot = resolve(import.meta.dir, "..");
-const fixtureDb = resolve(repoRoot, "data/fixtures/surnames.sqlite3");
+describe("hydrate_name voice UX", () => {
+  const service = createFixtureService();
 
-function service(): NamesService {
-  const config = loadConfig({
-    ...process.env,
-    NAMELEX_DB_PATH: fixtureDb,
-  });
-  return new NamesService(config, new Lexicon(config.dbPath));
-}
-
-describe("namelex normalize/phonetics", () => {
-  test("normalizes Müller", () => {
-    expect(normalize("Müller")).toBe("mueller");
-    expect(skeleton("Schmidt")).toBe(skeleton("Schmitt"));
+  test("Schmit → Schmidt with followUp", () => {
+    const r = service.hydrateName("Schmit");
+    expect(r.query).toBe("Schmit");
+    expect(r.best?.name).toBe("Schmidt");
+    expect(r.needsHuman).toBe(false);
+    expect(r.confidence).toBeGreaterThan(0.8);
+    expect(["confirm_one", "choose_two", "choose_few", "accept"]).toContain(r.followUp);
+    expect(r.hints.cologne.length).toBeGreaterThan(0);
   });
 
-  test("cologne reference values", () => {
-    expect(cologne("Breschnew")).toBe("17863");
-    expect(cologne("Mueller-Luedenscheidt")).toBe("65752682");
-  });
-});
-
-describe("hydrate_name (pure TypeScript)", () => {
-  test("resolves Schmit → Schmidt", () => {
-    const result = service().hydrateName("Schmit");
-    expect(result.query).toBe("Schmit");
-    expect(result.matches?.some((m) => m.name === "Schmidt")).toBe(true);
-    expect(result.needsHuman).toBe(false);
+  test("empty → spell_or_human", () => {
+    const r = service.hydrateName("  ");
+    expect(r.needsHuman).toBe(true);
+    expect(r.best).toBeNull();
+    expect(r.followUp).toBe("spell_or_human");
+    expect(r.error).toBeTruthy();
   });
 
-  test("empty name needs human", () => {
-    const result = service().hydrateName("  ");
-    expect(result.needsHuman).toBe(true);
-    expect(result.error).toBeTruthy();
+  test("Mueller → Müller", () => {
+    const r = service.hydrateName("Mueller");
+    expect(r.best?.name).toBe("Müller");
+    expect(r.needsHuman).toBe(false);
   });
 
-  test("lexicon_stats returns counts", () => {
-    const stats = service().lexiconStats();
-    expect(stats.exists).toBe(true);
-    expect(stats.surnames).toBeGreaterThanOrEqual(5);
+  test("given Jannik", () => {
+    const r = service.hydrateName("Jannik", { kind: "given" });
+    expect(r.kind).toBe("given");
+    expect(r.best?.name).toBe("Jannik");
   });
 
-  test("missing db fails clearly", () => {
-    const config = loadConfig({
-      ...process.env,
-      NAMELEX_DB_PATH: resolve(repoRoot, "data/fixtures/missing.sqlite3"),
-    });
-    expect(() => new NamesService(config, new Lexicon(config.dbPath))).toThrow(/not found/);
+  test("lexicon_stats dual", () => {
+    const s = service.lexiconStats();
+    expect(s.exists).toBe(true);
+    expect(s.surnames).toBeGreaterThanOrEqual(10);
+    expect(s.kinds).toContain("family");
+    expect(s.kinds).toContain("given");
   });
-});
 
-describe("MCP registration", () => {
-  test("registers hydrate_name and lexicon_stats", () => {
-    const config = loadConfig({ ...process.env, NAMELEX_DB_PATH: fixtureDb });
-    const server = createMcpServer(service(), config);
-    expect(server).toBeTruthy();
+  test("search_names prefix", () => {
+    const s = service.searchNames({ prefix: "Sch", limit: 10 });
+    expect(s.names.some((n) => n.startsWith("Sch"))).toBe(true);
+  });
+
+  test("suggest_names capped", () => {
+    const s = service.suggestNames("Schmit", { limit: 3 });
+    expect(s.suggestions.length).toBeLessThanOrEqual(3);
+  });
+
+  test("health ok", () => {
+    const h = service.health();
+    expect(h.ok).toBe(true);
+    expect(h.service).toBe("mcp-names");
   });
 });

@@ -1,11 +1,6 @@
-import { NamesService } from "./application/names-service.js";
-import type { AppConfig } from "./config.js";
+import { composeNamesService } from "./composition.js";
 import { loadConfig } from "./config.js";
-import { Lexicon } from "./namelex/index.js";
 
-/** Shared startup for the MCP entrypoint. */
+/** Gemeinsamer Start für stdio und HTTP. */
 export const config = loadConfig();
-
-export function composeService(cfg: AppConfig = config): NamesService {
-  return new NamesService(cfg, new Lexicon(cfg.dbPath));
-}
+export const composeService = () => composeNamesService(config);

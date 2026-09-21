@@ -1,0 +1,14 @@
+node_modules
+.git
+.github
+.env
+*.log
+docs
+test
+README.md
+.venv
+venv
+packages
+vendor
+pyproject.toml
+*.egg-info
